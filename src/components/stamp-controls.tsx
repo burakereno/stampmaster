@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import {
     StampOptions,
     StampPosition,
-    PageSelection,
     PageStampSettings,
     DEFAULT_STAMP_SETTINGS,
     getPageSettings,
@@ -33,13 +32,6 @@ const positionLabels: Record<StampPosition, string> = {
     "top-right": "Sağ Üst",
     "top-left": "Sol Üst",
     center: "Orta",
-};
-
-const pageSelectionLabels: Record<PageSelection, string> = {
-    all: "Tüm Sayfalar",
-    first: "Sadece İlk Sayfa",
-    last: "Sadece Son Sayfa",
-    custom: "Özel Seçim",
 };
 
 export function StampControls({
@@ -114,10 +106,10 @@ export function StampControls({
                                     key={i}
                                     onClick={() => togglePage(i)}
                                     className={`text-[11px] py-1 rounded border transition-colors ${isSelected
-                                            ? "bg-primary/15 border-primary/40 text-primary font-medium"
-                                            : hasCustom
-                                                ? "bg-muted/50 border-border text-muted-foreground"
-                                                : "bg-transparent border-border/50 text-muted-foreground/60 hover:border-border"
+                                        ? "bg-primary/15 border-primary/40 text-primary font-medium"
+                                        : hasCustom
+                                            ? "bg-muted/50 border-border text-muted-foreground"
+                                            : "bg-transparent border-border/50 text-muted-foreground/60 hover:border-border"
                                         }`}
                                 >
                                     {i + 1}
@@ -228,55 +220,6 @@ export function StampControls({
                 </div>
             </fieldset>
 
-            <Separator />
-
-            {/* Page Selection — which pages get stamped */}
-            <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">
-                    Kaşelenecek Sayfalar
-                    {totalPages > 0 && (
-                        <span className="ml-1 text-foreground">({totalPages} sayfa)</span>
-                    )}
-                </Label>
-                <Select
-                    value={options.pageSelection}
-                    onValueChange={(value: PageSelection) =>
-                        onChange({ ...options, pageSelection: value })
-                    }
-                >
-                    <SelectTrigger className="w-full h-8 text-sm">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.entries(pageSelectionLabels).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>
-                                {label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {options.pageSelection === "custom" && (
-                <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                        Sayfa numaraları (virgülle ayırın)
-                    </Label>
-                    <input
-                        type="text"
-                        placeholder="1, 3, 5"
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                        value={options.customPages.map((p) => p + 1).join(", ")}
-                        onChange={(e) => {
-                            const pages = e.target.value
-                                .split(",")
-                                .map((s) => parseInt(s.trim()) - 1)
-                                .filter((n) => !isNaN(n) && n >= 0 && n < totalPages);
-                            onChange({ ...options, customPages: pages });
-                        }}
-                    />
-                </div>
-            )}
         </div>
     );
 }
