@@ -1,63 +1,170 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { PdfDropzone } from "@/components/pdf-dropzone";
+import { StampDropzone } from "@/components/stamp-dropzone";
+import { StampControls } from "@/components/stamp-controls";
+import { PdfPreview } from "@/components/pdf-preview";
+import {
+  DEFAULT_STAMP_OPTIONS,
+  StampOptions,
+  applyStamp,
+} from "@/lib/stamp-engine";
+import { toast } from "sonner";
+import { Download, Stamp, Loader2 } from "lucide-react";
 
 export default function Home() {
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [stampFile, setStampFile] = useState<File | null>(null);
+  const [stampPreviewUrl, setStampPreviewUrl] = useState<string | null>(null);
+  const [stampOptions, setStampOptions] = useState<StampOptions>(DEFAULT_STAMP_OPTIONS);
+  const [totalPages, setTotalPages] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
+
+  // When totalPages changes, select all pages by default
+  useEffect(() => {
+    if (totalPages > 0) {
+      setSelectedPages(Array.from({ length: totalPages }, (_, i) => i));
+    } else {
+      setSelectedPages([]);
+    }
+  }, [totalPages]);
+
+  const handleStampFileSelect = useCallback((file: File) => {
+    setStampFile(file);
+    const url = URL.createObjectURL(file);
+    setStampPreviewUrl(url);
+  }, []);
+
+  const handleStampClear = useCallback(() => {
+    if (stampPreviewUrl) URL.revokeObjectURL(stampPreviewUrl);
+    setStampFile(null);
+    setStampPreviewUrl(null);
+  }, [stampPreviewUrl]);
+
+  const handlePdfClear = useCallback(() => {
+    setPdfFile(null);
+    setTotalPages(0);
+    setStampOptions(DEFAULT_STAMP_OPTIONS);
+  }, []);
+
+  const handleTotalPagesChange = useCallback((total: number) => {
+    setTotalPages(total);
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    if (!pdfFile || !stampFile) {
+      toast.error("Lütfen hem PDF hem de kaşe görselini yükleyin.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const pdfBytes = await pdfFile.arrayBuffer();
+      const stampBytes = await stampFile.arrayBuffer();
+
+      const result = await applyStamp(pdfBytes, stampBytes, stampFile.type, stampOptions);
+
+      const blob = new Blob([new Uint8Array(result) as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pdfFile.name.replace(".pdf", "_kaseli.pdf");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Kaşeli PDF başarıyla indirildi!");
+    } catch (error) {
+      console.error(error);
+      toast.error("PDF işlenirken bir hata oluştu.");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [pdfFile, stampFile, stampOptions]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-primary p-1.5">
+              <Stamp className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-base font-semibold tracking-tight leading-tight">Kaseci</h1>
+              <p className="text-[11px] text-muted-foreground hidden sm:block leading-tight">
+                PDF Kaşe Yerleştirme
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleDownload}
+            disabled={!pdfFile || !stampFile || isProcessing}
+            size="sm"
+            className="gap-2"
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Kaşele & İndir
+          </Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <main className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 h-full">
+          {/* Left Panel */}
+          <div className="space-y-3 overflow-y-auto">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">PDF Dosyası</p>
+              <PdfDropzone onFileSelect={setPdfFile} selectedFile={pdfFile} onClear={handlePdfClear} />
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Kaşe Görseli</p>
+              <StampDropzone
+                onFileSelect={handleStampFileSelect}
+                selectedFile={stampFile}
+                previewUrl={stampPreviewUrl}
+                onClear={handleStampClear}
+              />
+            </div>
+
+            {pdfFile && stampFile && (
+              <div>
+                <Separator className="my-3" />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Ayarlar</p>
+                <StampControls
+                  options={stampOptions}
+                  onChange={setStampOptions}
+                  totalPages={totalPages}
+                  selectedPages={selectedPages}
+                  onSelectedPagesChange={setSelectedPages}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right Panel */}
+          <div className="min-h-0 overflow-hidden">
+            <PdfPreview
+              pdfFile={pdfFile}
+              stampPreviewUrl={stampPreviewUrl}
+              stampOptions={stampOptions}
+              onTotalPagesChange={handleTotalPagesChange}
+              currentPage={currentPage}
+              onCurrentPageChange={setCurrentPage}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
       </main>
     </div>
